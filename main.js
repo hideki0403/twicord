@@ -1,3 +1,19 @@
+// Twitter x Discord   TwicordProject
+// Created by @hideki_0403
+//
+// このソースコードの二次配布・改変配布・無断利用を固く禁じます。
+// お問い合わせは https://twitter.com/hideki_0403 まで。
+//
+// Website http://hideki0403.ml
+//
+// 使用モジュール: eris, twitter, oauth, twitter-pin-oauth, axios
+//
+// 以下のようにディレクトリ構成をしないと動きません。
+// ./lib --> メインライブラリ
+// ./lib/cache --> キャッシュ保存用フォルダ
+// ./lib/key --> TwitterAccessTokenKey,secret保存用フォルダ
+// ./lib/settings --> ユーザー設定ファイル保存用フォルダ
+
 const eris = require('eris')
 const token = require('./config.conf')['token']
 const bot = new eris(token)
@@ -15,6 +31,8 @@ const dir = '/home/pi/デスクトップ/DiscordBots/twicord/'
 var verify = false
 addPicture = false
 var mediaIDs = []
+editSettings = false
+tweetIDcache = ''
 
 bot.on('ready', (msg) => {
     console.log('Ready...')
@@ -39,13 +57,21 @@ function isExistFile(name) {
 
 function isExistCacheFile(name) {
     try {
-        fs.statSync(dir + 'lib/cache/cache-' + name + '.cache')
+        fs.statSync(dir + 'lib/cache/cache-' + name + '.tmp')
         return true
     } catch(err) {
         if(err.conde === 'ENOENT') return false
     }
 }
 
+function isExistSettingsFile(name) {
+    try {
+        fs.statSync(dir + 'lib/settings/' + name + '.conf')
+        return true
+    } catch(err) {
+        if(err.conde === 'ENOENT') return false
+    }
+}
 
 bot.on('messageCreate', (msg) => {
     if(msg.content === '.login') {
@@ -158,30 +184,31 @@ bot.on('messageCreate', (msg) => {
                     {status: tweetContent},
                         function(error, tweet, response) {
                             if (!error) {
-                                fs.writeFileSync(dir + 'lib/cache/cache-' + msg.id + '.cache', tweet.id_str)
                                 bot.createMessage(msg.channel.id, {
                                     embed: {
-                                        color: 0x44fc53,
+                                        color: 0x1ebfff,
                                         author: {
                                             name: '[' + tweet.user.name + '] ツイートをしました!',
-                                            icon_url: 'https://png.icons8.com/color/50/000000/ok.png'
+                                            icon_url: 'https://g.twimg.com/ios_homescreen_icon.png'
                                         },
                                         description: tweetContent,
                                         footer: {
-                                            text: '@' + tweet.screen_name,
+                                            text: '@' + tweet.user.screen_name + ' (' + tweet.id_str + ')',
                                             icon_url: tweet.user.profile_image_url
                                         }
                                     }
                                 })
+                                tweetIDcache = tweet.id_str
+                                tweetUserCache = tweet.user.name
                             } else {
                                 bot.createMessage(msg.channel.id, {
                                     embed: {
                                         color: 0xff1919,
                                         author: {
-                                            name: 'Error',
+                                            name: 'ErrorCode:' + error[0].code,
                                             icon_url: 'http://icons.iconarchive.com/icons/paomedia/small-n-flat/72/sign-error-icon.png'
                                         },
-                                        description: 'ErrorCode:' + error
+                                        description: error[0].message
                                     }
                                 })
                             }
@@ -197,14 +224,14 @@ bot.on('messageCreate', (msg) => {
                         if (!error) {
                             bot.createMessage(msg.channel.id, {
                                 embed: {
-                                    color: 0x44fc53,
+                                    color: 0x1ebfff,
                                     author: {
                                         name: '[' + tweet.user.name + '] 画像付きツイートをしました!',
-                                        icon_url: 'https://png.icons8.com/color/50/000000/ok.png'
+                                        icon_url: 'https://g.twimg.com/ios_homescreen_icon.png'
                                     },
-                                    description: '[ツイート内容]\n' + tweetContent,
+                                    description: tweetContent,
                                     footer: {
-                                        text: '@' + tweet.screen_name,
+                                        text: '@' + tweet.user.screen_name,
                                         icon_url: tweet.user.profile_image_url
                                     }
                                 }
@@ -214,10 +241,10 @@ bot.on('messageCreate', (msg) => {
                                 embed: {
                                     color: 0xff1919,
                                     author: {
-                                        name: 'Error',
+                                        name: 'ErrorCode:' + error[0].code,
                                         icon_url: 'http://icons.iconarchive.com/icons/paomedia/small-n-flat/72/sign-error-icon.png'
                                     },
-                                    description: 'ErrorCode:' + error
+                                    description: error[0].message
                                 }
                             })
                         }
@@ -240,20 +267,21 @@ bot.on('messageCreate', (msg) => {
 })
 
 bot.on('messageCreate', (msg) => {
-    if(msg.author.bot === false) {
-    if(msg.content === '.tc invite') {
-        bot.createMessage(msg.channel.id, {
-            embed: {
-                author: {
-                    name: 'Twicord invite',
-                    icon_url: msg.author.avatarURL
-                },
-                description: '[こちらのリンク](https://discordapp.com/api/oauth2/authorize?client_id=448454207427706880&permissions=24576&scope=bot)から招待できます',
-                color: 0x429bf4
+        if(msg.author.bot === false) {
+            if(msg.content === '.tc invite') {
+                bot.createMessage(msg.channel.id, {
+                    embed: {
+                        author: {
+                            name: 'Twicord invite',
+                            icon_url: msg.author.avatarURL
+                        },
+                        description: '[こちらのリンク](https://discordapp.com/api/oauth2/authorize?client_id=448454207427706880&permissions=24576&scope=bot)から招待できます',
+                        color: 0x429bf4
+                    }
+                })
             }
-        })
-    }
-}
+        }
+    
 })
 
 bot.on('messageCreate', (msg) => {
@@ -320,6 +348,9 @@ bot.on('messageCreate', (msg) => {
                         name: '.add',
                         value: 'ツイートしたい画像を追加することができます。'
                     } , {
+                        name: '.setting',
+                        value: 'ステータス変化やプレイ中のゲーム変化時に自動ツイートするか否かを設定できます。'
+                    } , {
                         name: '.profile <TwitterID>',
                         value: '指定したユーザーのプロフィールを表示します。'
                     } , {
@@ -335,6 +366,164 @@ bot.on('messageCreate', (msg) => {
                 ]
             }
         })
+    } else {
+        if(msg.content === '.setting') {
+            if(isExistSettingsFile(msg.author.id) === true) {
+                var settings = JSON.parse(fs.readFileSync(dir + 'lib/settings/' + msg.author.id + '.conf'))
+                editSettings = true
+                bot.createMessage(msg.channel.id, {
+                    embed: {
+                        color: 0x44fc53,
+                        author: {
+                            name: 'SettingsMenu',
+                        },
+                        description: '変更する内容を数字で指定してください。\nトグル式になっているのでfalseだった場合はtrue、trueだった場合はfalseに変更されます。\n**※false=無効/true=有効**\n\ncancelと入力することで中断できます。',
+                        fields: [
+                            {
+                                name: '1',
+                                value: 'ステータス変更時に自動ツイート（現在: ' + settings.status + ' ）'
+                            } , {
+                                name: '2',
+                                value: 'プレイ中のゲーム変更時に自動ツイート（現在: ' + settings.game + ' ）'
+                            }
+                        ],
+                        footer: {
+                            text: msg.author.username,
+                            icon_url: msg.author.avatarURL
+                        }
+                    }
+                })
+            } else {
+                var data = {
+                    status: false,
+                    game: false
+                }
+                fs.writeFileSync(dir + 'lib/settings/' + msg.author.id + '.conf', JSON.stringify(data, null))
+                bot.createMessage(msg.channel.id, {
+                    embed: {
+                        color: 0x44fc53,
+                        author: {
+                            name: 'Settingsファイルを生成しました。',
+                            icon_url: 'https://png.icons8.com/color/50/000000/ok.png'
+                        },
+                        description: 'あなたのSettingsファイルが存在しなかったため、自動生成されました。\nもう一度 .setting と入力することで設定を変更することができます。',
+    
+                        footer: {
+                            text: msg.author.username,
+                            icon_url: msg.author.avatarURL
+                        }
+                    }
+                })
+            }
+        } else {
+            if(editSettings === true) {
+                var settings = JSON.parse(fs.readFileSync(dir + 'lib/settings/' + msg.author.id + '.conf'))
+                if(msg.content === '1') {
+                    editSettings = false
+                    if(settings.status === false) {
+                        var data = {
+                            status: true,
+                            game: settings.game
+                        }
+                        fs.writeFileSync(dir + 'lib/settings/' + msg.author.id + '.conf', JSON.stringify(data, null))
+                        bot.createMessage(msg.channel.id, {
+                            embed: {
+                                color: 0x44fc53,
+                                author: {
+                                    name: 'SettingsMenu',
+                                },
+                                description: 'ステータス変更時に自動ツイートする設定を**有効化**しました。',
+                                footer: {
+                                    text: msg.author.username,
+                                    icon_url: msg.author.avatarURL
+                                }
+                            }
+                        })
+                    } else {
+                        var data = {
+                            status: false,
+                            game: settings.game
+                        }
+                        fs.writeFileSync(dir + 'lib/settings/' + msg.author.id + '.conf', JSON.stringify(data, null))
+                        bot.createMessage(msg.channel.id, {
+                            embed: {
+                                color: 0x44fc53,
+                                author: {
+                                    name: 'SettingsMenu',
+                                },
+                                description: 'ステータス変更時に自動ツイートする設定を**無効化**しました。',
+                                footer: {
+                                    text: msg.author.username,
+                                    icon_url: msg.author.avatarURL
+                                }
+                            }
+                        })
+                    }
+                } else {
+                    if(msg.content === '2') {
+                        editSettings = false
+                        if(settings.game === false) {
+                            var data = {
+                                status: settings.status,
+                                game: true
+                            }
+                            fs.writeFileSync(dir + 'lib/settings/' + msg.author.id + '.conf', JSON.stringify(data, null))
+                            bot.createMessage(msg.channel.id, {
+                                embed: {
+                                    color: 0x44fc53,
+                                    author: {
+                                        name: 'SettingsMenu',
+                                    },
+                                    description: 'プレイ中のゲーム変更時に自動ツイートする設定を**有効化**しました。',
+                                    footer: {
+                                        text: msg.author.username,
+                                        icon_url: msg.author.avatarURL
+                                    }
+                                }
+                            })
+                        } else {
+                            var data = {
+                                status: settings.status,
+                                game: false
+                            }
+                            fs.writeFileSync(dir + 'lib/settings/' + msg.author.id + '.conf', JSON.stringify(data, null))
+                            bot.createMessage(msg.channel.id, {
+                                embed: {
+                                    color: 0x44fc53,
+                                    author: {
+                                        name: 'SettingsMenu',
+                                    },
+                                    description: 'プレイ中のゲーム変更時に自動ツイートする設定を**無効化**しました。',
+                                    footer: {
+                                        text: msg.author.username,
+                                        icon_url: msg.author.avatarURL
+                                    }
+                                }
+                            })
+                        }
+                    } else {
+                        if(msg.content === 'cancel') {
+                            editSettings = false
+                            bot.createMessage(msg.channel.id, {
+                                embed: {
+                                    color: 0x44fc53,
+                                    author: {
+                                        name: '設定の変更をキャンセルしました。',
+                                        icon_url: 'https://png.icons8.com/color/50/000000/ok.png'
+                                    },
+                                    description: '設定の変更をキャンセルしました。',
+                
+                                    footer: {
+                                        text: msg.author.username,
+                                        icon_url: msg.author.avatarURL
+                                    }
+                                }
+                            })
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 })
@@ -383,10 +572,10 @@ bot.on('messageCreate', (msg) => {
                             embed: {
                                 color: 0xff1919,
                                 author: {
-                                    name: 'Error',
-                                    icon_url: msg.author.avatarURL
+                                    name: 'ErrorCode:' + errors[0].code,
+                                    icon_url: 'http://icons.iconarchive.com/icons/paomedia/small-n-flat/72/sign-error-icon.png'
                                 },
-                                description: 'エラーが発生しました。ユーザーが存在していないか、アカウントが凍結されている可能性があります。'
+                                description: errors[0].message
                             }
                         })
                     } else {
@@ -503,23 +692,34 @@ bot.on('messageCreate', (msg) => {
                         if (!error) {
                             mediaID = media.media_id_string
                             console.log(media.media_id_string)
+                            bot.createMessage(msg.channel.id, {
+                                embed: {
+                                    color: 0x44fc53,
+                                    author: {
+                                        name: '画像を追加しました',
+                                        icon_url: 'https://png.icons8.com/color/50/000000/ok.png'
+                                    },
+                                    description: '画像を追加しました。',
+        
+                                    footer: {
+                                        text: msg.author.username,
+                                        icon_url: msg.author.avatarURL
+                                    }
+                                }
+                            })
+                        } else {
+                            bot.createMessage(msg.channel.id, {
+                                embed: {
+                                    color: 0xff1919,
+                                    author: {
+                                        name: 'ErrorCode:' + error[0].code,
+                                        icon_url: 'http://icons.iconarchive.com/icons/paomedia/small-n-flat/72/sign-error-icon.png'
+                                    },
+                                    description: error[0].message
+                                }
+                            })
                         }
-                    })
-                    await bot.createMessage(msg.channel.id, {
-                        embed: {
-                            color: 0x44fc53,
-                            author: {
-                                name: '画像を追加しました',
-                                icon_url: 'https://png.icons8.com/color/50/000000/ok.png'
-                            },
-                            description: '画像を追加しました。',
-
-                            footer: {
-                                text: msg.author.username,
-                                icon_url: msg.author.avatarURL
-                            }
-                        }
-                    })
+                    }) 
                 }
                 runPick()
 
@@ -527,30 +727,185 @@ bot.on('messageCreate', (msg) => {
     }
 })
 
+// Settings生成
 /*
-
-// リアクション付けてふぁぼ・RTしようと思ったけどDiscordAPIの仕様上、リアクションを付けたメッセージの内容やIDを取得できなかったので断念
-// しっかりしてくれよDiscordさん...
-
 bot.on('messageCreate', (msg) => {
-    if(msg.author.id === bot.user.id) {
-        if(msg.embeds[0].footer.text.match(/^([1-9]\d*|0)$/)) {
-            if(msg.embeds[0].footer.text.length === 19) {
-                bot.addMessageReaction(msg.channel.id, msg.id, '❤')
-                bot.addMessageReaction(msg.channel.id, msg.id, '🔁')
+    if(msg.content === '.setting') {
+        if(isExistSettingsFile(msg.author.id) === false) {
+            var data = {
+                status: false,
+                game: false
+            }
+            fs.writeFileSync(dir + 'lib/settings/' + msg.author.id + '.conf', JSON.stringify(data, null))
+            bot.createMessage(msg.channel.id, {
+                embed: {
+                    color: 0x44fc53,
+                    author: {
+                        name: 'Settingsファイルを生成しました。',
+                        icon_url: 'https://png.icons8.com/color/50/000000/ok.png'
+                    },
+                    description: 'あなたのSettingsファイルが存在しなかったため、自動生成されました。\nもう一度 .setting と入力することで設定を変更することができます。',
+
+                    footer: {
+                        text: msg.author.username,
+                        icon_url: msg.author.avatarURL
+                    }
+                }
+            })
+        } else {
+            var setting = JSON.parse(fs.readFileSync(dir + 'lib/settings/' + msg.author.id + '.conf'))
+            editSettings = true
+            bot.createMessage(msg.channel.id, {
+                embed: {
+                    color: 0x44fc53,
+                    author: {
+                        name: 'SettingsMenu',
+                    },
+                    description: '変更する内容を数字で指定してください。\nトグル式になっているのでfalseだった場合はtrue、trueだった場合はfalseに変更されます。\n**※false=無効/true=有効**\n\ncancelと入力することで中断できます。',
+                    fields: [
+                        {
+                            name: '1',
+                            value: 'ステータス変更時に自動ツイート（現在: ' + settings.status + ' ）'
+                        } , {
+                            name: '2',
+                            value: 'プレイ中のゲーム変更時に自動ツイート（現在: ' + settings.game + ' ）'
+                        }
+                    ],
+                    footer: {
+                        text: msg.author.username,
+                        icon_url: msg.author.avatarURL
+                    }
+                }
+            })
+        }
+    } else {
+        if(editSettings === true) {
+            var setting = JSON.parse(fs.readFileSync(dir + 'lib/settings/' + msg.author.id + '.conf'))
+            if(msg.content === '1') {
+                editSettings = false
+                if(settings.status === false) {
+                    var data = {
+                        status: true,
+                        game: settings.game
+                    }
+                    fs.writeFileSync(dir + 'lib/settings/' + msg.author.id + '.conf', JSON.stringify(data, null))
+                    bot.createMessage(msg.channel.id, {
+                        embed: {
+                            color: 0x44fc53,
+                            author: {
+                                name: 'SettingsMenu',
+                            },
+                            description: 'ステータス変更時に自動ツイートする設定を**有効化**しました。',
+                            footer: {
+                                text: msg.author.username,
+                                icon_url: msg.author.avatarURL
+                            }
+                        }
+                    })
+                } else {
+                    var data = {
+                        status: false,
+                        game: settings.game
+                    }
+                    fs.writeFileSync(dir + 'lib/settings/' + msg.author.id + '.conf', JSON.stringify(data, null))
+                    bot.createMessage(msg.channel.id, {
+                        embed: {
+                            color: 0x44fc53,
+                            author: {
+                                name: 'SettingsMenu',
+                            },
+                            description: 'ステータス変更時に自動ツイートする設定を**無効化**しました。',
+                            footer: {
+                                text: msg.author.username,
+                                icon_url: msg.author.avatarURL
+                            }
+                        }
+                    })
+                }
+            } else {
+                if(msg.content === '2') {
+                    editSettings = false
+                    if(settings.game === false) {
+                        var data = {
+                            status: settings.status,
+                            game: true
+                        }
+                        fs.writeFileSync(dir + 'lib/settings/' + msg.author.id + '.conf', JSON.stringify(data, null))
+                        bot.createMessage(msg.channel.id, {
+                            embed: {
+                                color: 0x44fc53,
+                                author: {
+                                    name: 'SettingsMenu',
+                                },
+                                description: 'プレイ中のゲーム変更時に自動ツイートする設定を**有効化**しました。',
+                                footer: {
+                                    text: msg.author.username,
+                                    icon_url: msg.author.avatarURL
+                                }
+                            }
+                        })
+                    } else {
+                        var data = {
+                            status: settings.status,
+                            game: false
+                        }
+                        fs.writeFileSync(dir + 'lib/settings/' + msg.author.id + '.conf', JSON.stringify(data, null))
+                        bot.createMessage(msg.channel.id, {
+                            embed: {
+                                color: 0x44fc53,
+                                author: {
+                                    name: 'SettingsMenu',
+                                },
+                                description: 'プレイ中のゲーム変更時に自動ツイートする設定を**無効化**しました。',
+                                footer: {
+                                    text: msg.author.username,
+                                    icon_url: msg.author.avatarURL
+                                }
+                            }
+                        })
+                    }
+                }
             }
         }
     }
 })
+*/
 
+
+bot.on('messageCreate', (msg) => {
+    console.log(msg.embeds.length)
+    if(msg.author.id === bot.user.id) {
+        if(msg.embeds.length === 1) {
+            console.log('ok')
+            if(msg.embeds[0].footer.text.indexOf(tweetIDcache) > -1) {
+                var count = msg.embeds[0].footer.text
+                var countreplace = count.replace(/.*? \(/, '')
+                var replace2 = countreplace.replace(')', '')
+    
+                if(replace2.length === 19) {
+                    // 保存
+                    var data = {
+                        content: msg.embeds[0].description,
+                        user: tweetUserCache,
+                        id: tweetIDcache
+                    }
+                    fs.writeFileSync(dir + 'lib/cache/cache-' + msg.id + '.tmp', JSON.stringify(data, null))
+                    bot.addMessageReaction(msg.channel.id, msg.id, '❤')
+                    bot.addMessageReaction(msg.channel.id, msg.id, '🔁')
+                }
+            }
+        }  
+    }
+})
 
 bot.on('messageReactionAdd', (msg, emoji, userid) => {
     if(emoji.name.match(/❤|🔁/)) {
         if(isExistCacheFile(msg.id) === true) {
-            var tweetID = fs.readFileSync(dir + 'lib/cache/cache-' + msg.id + '.cache')
+            var tweetData = JSON.parse(fs.readFileSync(dir + 'lib/cache/cache-' + msg.id + '.tmp'))
                 if(isExistFile(userid) === true) {
                     if(emoji.name === '❤') {
-                        var cache = fs.readFileSync(dir + 'lib/key/' + msg.author.id + '.key', 'utf-8')
+                        console.log('ふぁぼ')
+                        var cache = fs.readFileSync(dir + 'lib/key/' + userid + '.key', 'utf-8')
                         var accountData = JSON.parse(cache)
                         var client = new twitter({
                             consumer_key: consumerKey,
@@ -558,83 +913,309 @@ bot.on('messageReactionAdd', (msg, emoji, userid) => {
                             access_token_key: accountData.key,
                             access_token_secret: accountData.secret,
                         })
-                        client.post('statuses/retweet', {id: tweetID}, function(error, tweet, response) {
+                        client.post('favorites/create', {id: tweetData.id}, function(error, tweet, response) {
                             if (!error) {
+                                console.log('ok')
+                                bot.createMessage(msg.channel.id, {
+                                        embed: {
+                                            color: 0xfc1955,
+                                            author: {
+                                                name: '[' + tweet.user.name + '] いいね！をしました!',
+                                                icon_url: 'https://pbs.twimg.com/media/De_yKcaV4AAevK1.jpg'
+                                            },
+                                            description: tweetData.user + 'さんのツイート: ' + tweetData.content,
+                                            footer: {
+                                                text: '@' + tweet.user.screen_name,
+                                                icon_url: tweet.user.profile_image_url
+                                            }
+                                        }
+                                    })
+                            } else {
+                                bot.createMessage(msg.channel.id, {
+                                    embed: {
+                                        color: 0xff1919,
+                                        author: {
+                                            name: 'ErrorCode:' + error[0].code,
+                                            icon_url: 'http://icons.iconarchive.com/icons/paomedia/small-n-flat/72/sign-error-icon.png'
+                                        },
+                                        description: error[0].message
+                                    }
+                                })
                             }
                         })
+
                     } else {
                         if(emoji.name === '🔁') {
                             console.log('RT')
+                            var cache = fs.readFileSync(dir + 'lib/key/' + userid + '.key', 'utf-8')
+                            var accountData = JSON.parse(cache)
+                            var client = new twitter({
+                                consumer_key: consumerKey,
+                                consumer_secret: consumerSecret,
+                                access_token_key: accountData.key,
+                                access_token_secret: accountData.secret,
+                            })
+                            client.post('statuses/retweet', {id: tweetData.id}, function(error, tweet, response) {
+                                if (!error) {
+                                    console.log('ok')
+                                    bot.createMessage(msg.channel.id, {
+                                        embed: {
+                                            color: 0x10e81b,
+                                            author: {
+                                                name: '[' + tweet.user.name + '] リツイートをしました!',
+                                                icon_url: 'https://pbs.twimg.com/media/DfAbceFUcAA_g8x.jpg'
+                                            },
+                                            description: tweetData.user + 'さんのツイート: ' + tweetData.content,
+                                            footer: {
+                                                text: '@' + tweet.user.screen_name,
+                                                icon_url: tweet.user.profile_image_url
+                                            }
+                                        }
+                                    })
+                                } else {
+                                    bot.createMessage(msg.channel.id, {
+                                        embed: {
+                                            color: 0xff1919,
+                                            author: {
+                                                name: 'ErrorCode:' + error[0].code,
+                                                icon_url: 'http://icons.iconarchive.com/icons/paomedia/small-n-flat/72/sign-error-icon.png'
+                                            },
+                                            description: error[0].message
+                                        }
+                                    })
+                                }
+                            })
                         }
-                    }
-                        
-                    
-                
+                    }     
+
             }
         }   
     } 
 })
-*/
-/*
+
+
 i = 0
 
 bot.on('presenceUpdate', (member, oldPresence) => {
-    if(member.id === '242183143564640258') {
-        // 状態変化で自動ツイートしようと思ったけど放り投げた
         i++
         if(i === 1) {
-            if(member.status ===! oldPresence.status) {
-                if(member.status === 'online') {memStatus = 'オンライン'}
-                if(member.status === 'idle') {memStatus = '退席中'}
-                if(member.status === 'dnd') {memStatus = '起こさないで'}
-                if(member.status === 'offline') {memStatus = 'オフライン'}
-                var cache = fs.readFileSync(dir + 'lib/key/' + member.id + '.key', 'utf-8')
-                var accountData = JSON.parse(cache)
-                var client = new twitter({
-                    consumer_key: consumerKey,
-                    consumer_secret: consumerSecret,
-                    access_token_key: accountData.key,
-                    access_token_secret: accountData.secret,
-                })
-                var tweetContent = '[Twicord自動ツイート]\n' + member.username + 'さんのステータスが' + memStatus + 'になりました。'
-                    client.post('statuses/update',
-                        {status: tweetContent},
-                            function(error, tweet, response) {
-                                if(!error) {
-                                    console.log('Success')
+            if(isExistSettingsFile(member.id) === true) {
+                var settings = JSON.parse(fs.readFileSync(dir + 'lib/settings/' + member.id + '.conf'))
+                if(settings.status === true) {
+                    if(member.status ===! oldPresence.status) {
+                        if(member.status === 'online') {memStatus = 'オンライン'}
+                        if(member.status === 'idle') {memStatus = '退席中'}
+                        if(member.status === 'dnd') {memStatus = '起こさないで'}
+                        if(member.status === 'offline') {memStatus = 'オフライン'}
+                        var cache = fs.readFileSync(dir + 'lib/key/' + member.id + '.key', 'utf-8')
+                        var accountData = JSON.parse(cache)
+                        var client = new twitter({
+                            consumer_key: consumerKey,
+                            consumer_secret: consumerSecret,
+                            access_token_key: accountData.key,
+                            access_token_secret: accountData.secret,
+                        })
+                        var eqtimevars = new Date()
+                        var fullyear = eqtimevars.getFullYear()
+                        var month = ('0' + (eqtimevars.getMonth() + 1)).slice(-2)
+                        var date = ('0' + eqtimevars.getDate()).slice(-2)
+                        var hours = ('0' + eqtimevars.getHours()).slice(-2)
+                        var minutes = ('0' + eqtimevars.getMinutes()).slice(-2)
+                        var seconds = ('0' + eqtimevars.getSeconds()).slice(-2)
+                        var timedata = hours + '時' + minutes + '分' + seconds + '秒現在' // ex.)20180117174403
+                        var tweetContent = '[Twicord自動ツイート]\n' + member.username + 'さんのステータスが' + memStatus + 'になりました。（' + timedata + ')'
+                            client.post('statuses/update',
+                                {status: tweetContent},
+                                    function(error, tweet, response) {
+                                        if(!error) {
+                                            console.log('Success')
+                                        }
+                                    }
+                                )
+                    } else {
+                        if(settings.game === true) {
+                            console.log(oldPresence.game)
+                            if(oldPresence.game === null) {
+                                if(member.game.type === 0) {
+                                    var eqtimevars = new Date()
+                                    var fullyear = eqtimevars.getFullYear()
+                                    var month = ('0' + (eqtimevars.getMonth() + 1)).slice(-2)
+                                    var date = ('0' + eqtimevars.getDate()).slice(-2)
+                                    var hours = ('0' + eqtimevars.getHours()).slice(-2)
+                                    var minutes = ('0' + eqtimevars.getMinutes()).slice(-2)
+                                    var seconds = ('0' + eqtimevars.getSeconds()).slice(-2)
+                                    var timedata = hours + '時' + minutes + '分' + seconds + '秒現在' // ex.)20180117174403
+                                    var cache = fs.readFileSync(dir + 'lib/key/' + member.id + '.key', 'utf-8')
+                                    var accountData = JSON.parse(cache)
+                                    var client = new twitter({
+                                        consumer_key: consumerKey,
+                                        consumer_secret: consumerSecret,
+                                        access_token_key: accountData.key,
+                                        access_token_secret: accountData.secret,
+                                    })
+                                    var tweetContent = '[Twicord自動ツイート]\n' + member.username + 'さんが「' + member.game.name + '」をプレイし始めました。（' + timedata + ')'
+                                        client.post('statuses/update',
+                                            {status: tweetContent},
+                                                function(error, tweet, response) {
+                                                    if(!error) {
+                                                        console.log('Success')
+                                                    }
+                                                }
+                                            )
+                                            
+                                }
+                            } else {
+                                if(member.game === null) {
+                                    var eqtimevars = new Date()
+                                    var fullyear = eqtimevars.getFullYear()
+                                    var month = ('0' + (eqtimevars.getMonth() + 1)).slice(-2)
+                                    var date = ('0' + eqtimevars.getDate()).slice(-2)
+                                    var hours = ('0' + eqtimevars.getHours()).slice(-2)
+                                    var minutes = ('0' + eqtimevars.getMinutes()).slice(-2)
+                                    var seconds = ('0' + eqtimevars.getSeconds()).slice(-2)
+                                    var timedata = hours + '時' + minutes + '分' + seconds + '秒現在' // ex.)20180117174403
+                                    var cache = fs.readFileSync(dir + 'lib/key/' + member.id + '.key', 'utf-8')
+                                    var accountData = JSON.parse(cache)
+                                    var client = new twitter({
+                                        consumer_key: consumerKey,
+                                        consumer_secret: consumerSecret,
+                                        access_token_key: accountData.key,
+                                        access_token_secret: accountData.secret,
+                                    })
+                                    var tweetContent = '[Twicord自動ツイート]\n' + member.username + 'さんが遊んでいるゲームはありません。（' + timedata + ')'
+                                        client.post('statuses/update',
+                                            {status: tweetContent},
+                                                function(error, tweet, response) {
+                                                    if(!error) {
+                                                        console.log('Success')
+                                                    }
+                                                }
+                                            )
+                                } else {
+                                    var eqtimevars = new Date()
+                                    var fullyear = eqtimevars.getFullYear()
+                                    var month = ('0' + (eqtimevars.getMonth() + 1)).slice(-2)
+                                    var date = ('0' + eqtimevars.getDate()).slice(-2)
+                                    var hours = ('0' + eqtimevars.getHours()).slice(-2)
+                                    var minutes = ('0' + eqtimevars.getMinutes()).slice(-2)
+                                    var seconds = ('0' + eqtimevars.getSeconds()).slice(-2)
+                                    var timedata = hours + '時' + minutes + '分' + seconds + '秒現在' // ex.)20180117174403
+                                    var cache = fs.readFileSync(dir + 'lib/key/' + member.id + '.key', 'utf-8')
+                                    var accountData = JSON.parse(cache)
+                                    var client = new twitter({
+                                        consumer_key: consumerKey,
+                                        consumer_secret: consumerSecret,
+                                        access_token_key: accountData.key,
+                                        access_token_secret: accountData.secret,
+                                    })
+                                    var tweetContent = '[Twicord自動ツイート]\n' + member.username + 'さんが遊んでいるゲームが「' + oldPresence.game.name + '」から「' + member.game.name + '」に変わりました。（' + timedata + ')'
+                                        client.post('statuses/update',
+                                            {status: tweetContent},
+                                                function(error, tweet, response) {
+                                                    if(!error) {
+                                                        console.log('Success')
+                                                    }
+                                                }
+                                            ) 
                                 }
                             }
-                        )
-            } else {
-
-                    var cache = fs.readFileSync(dir + 'lib/key/' + member.id + '.key', 'utf-8')
-                    var accountData = JSON.parse(cache)
-                    var client = new twitter({
-                        consumer_key: consumerKey,
-                        consumer_secret: consumerSecret,
-                        access_token_key: accountData.key,
-                        access_token_secret: accountData.secret,
-                    })
-                    var tweetContent = '[Twicord自動ツイート]\n' + member.username + 'さんのプレイ中のゲームが「' + memStatus + '」になりました。'
-                        client.post('statuses/update',
-                            {status: tweetContent},
-                                function(error, tweet, response) {
-                                    if(!error) {
-                                        console.log('Success')
-                                    }
-                                }
-                            )
+                        }
+                    }
+                } else {
+                    if(settings.game === true) {
+                        console.log(oldPresence.game)
+                        if(oldPresence.game === null) {
+                            if(member.game.type === 0) {
+                                var eqtimevars = new Date()
+                                var fullyear = eqtimevars.getFullYear()
+                                var month = ('0' + (eqtimevars.getMonth() + 1)).slice(-2)
+                                var date = ('0' + eqtimevars.getDate()).slice(-2)
+                                var hours = ('0' + eqtimevars.getHours()).slice(-2)
+                                var minutes = ('0' + eqtimevars.getMinutes()).slice(-2)
+                                var seconds = ('0' + eqtimevars.getSeconds()).slice(-2)
+                                var timedata = hours + '時' + minutes + '分' + seconds + '秒現在' // ex.)20180117174403
+                                var cache = fs.readFileSync(dir + 'lib/key/' + member.id + '.key', 'utf-8')
+                                var accountData = JSON.parse(cache)
+                                var client = new twitter({
+                                    consumer_key: consumerKey,
+                                    consumer_secret: consumerSecret,
+                                    access_token_key: accountData.key,
+                                    access_token_secret: accountData.secret,
+                                })
+                                var tweetContent = '[Twicord自動ツイート]\n' + member.username + 'さんが「' + member.game.name + '」をプレイし始めました。（' + timedata + ')'
+                                    client.post('statuses/update',
+                                        {status: tweetContent},
+                                            function(error, tweet, response) {
+                                                if(!error) {
+                                                    console.log('Success')
+                                                }
+                                            }
+                                        )
+                                        
+                            }
+                        } else {
+                            if(member.game === null) {
+                                var eqtimevars = new Date()
+                                var fullyear = eqtimevars.getFullYear()
+                                var month = ('0' + (eqtimevars.getMonth() + 1)).slice(-2)
+                                var date = ('0' + eqtimevars.getDate()).slice(-2)
+                                var hours = ('0' + eqtimevars.getHours()).slice(-2)
+                                var minutes = ('0' + eqtimevars.getMinutes()).slice(-2)
+                                var seconds = ('0' + eqtimevars.getSeconds()).slice(-2)
+                                var timedata = hours + '時' + minutes + '分' + seconds + '秒現在' // ex.)20180117174403
+                                var cache = fs.readFileSync(dir + 'lib/key/' + member.id + '.key', 'utf-8')
+                                var accountData = JSON.parse(cache)
+                                var client = new twitter({
+                                    consumer_key: consumerKey,
+                                    consumer_secret: consumerSecret,
+                                    access_token_key: accountData.key,
+                                    access_token_secret: accountData.secret,
+                                })
+                                var tweetContent = '[Twicord自動ツイート]\n' + member.username + 'さんが遊んでいるゲームはありません。（' + timedata + ')'
+                                    client.post('statuses/update',
+                                        {status: tweetContent},
+                                            function(error, tweet, response) {
+                                                if(!error) {
+                                                    console.log('Success')
+                                                }
+                                            }
+                                        )
+                            } else {
+                                var eqtimevars = new Date()
+                                var fullyear = eqtimevars.getFullYear()
+                                var month = ('0' + (eqtimevars.getMonth() + 1)).slice(-2)
+                                var date = ('0' + eqtimevars.getDate()).slice(-2)
+                                var hours = ('0' + eqtimevars.getHours()).slice(-2)
+                                var minutes = ('0' + eqtimevars.getMinutes()).slice(-2)
+                                var seconds = ('0' + eqtimevars.getSeconds()).slice(-2)
+                                var timedata = hours + '時' + minutes + '分' + seconds + '秒現在' // ex.)20180117174403
+                                var cache = fs.readFileSync(dir + 'lib/key/' + member.id + '.key', 'utf-8')
+                                var accountData = JSON.parse(cache)
+                                var client = new twitter({
+                                    consumer_key: consumerKey,
+                                    consumer_secret: consumerSecret,
+                                    access_token_key: accountData.key,
+                                    access_token_secret: accountData.secret,
+                                })
+                                var tweetContent = '[Twicord自動ツイート]\n' + member.username + 'さんが遊んでいるゲームが「' + oldPresence.game.name + '」から「' + member.game.name + '」に変わりました。（' + timedata + ')'
+                                    client.post('statuses/update',
+                                        {status: tweetContent},
+                                            function(error, tweet, response) {
+                                                if(!error) {
+                                                    console.log('Success')
+                                                }
+                                            }
+                                        ) 
+                            }
                         }
                     }
                 }
             }
-            
-            setTimeout(function () {
-                i = 0
-            },1000)
-        }
+        setTimeout(function () {
+        i = 0
+        },1000) 
     }
 })
-*/
 
+            
 bot.connect()
